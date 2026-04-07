@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Gmail - Buddy AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-noise"></div>
+
+<div class="auth-wrapper">
+    <div class="auth-box">
+        <!-- Verification Shield SVG -->
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10a37f" stroke-width="2" style="margin-bottom:20px;">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <path d="M9 12l2 2 4-4"></path>
+        </svg>
+
+        <h2>Verify your Account</h2>
+        <p class="subtitle">Check your Gmail or Mobile Messages for the 6-digit code.</p>
+
+        {% if error %}
+            <div class="error">
+                <span>⚠️</span> {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="POST" action="/verify">
+            <input type="text" name="code" placeholder="Enter 6-digit code" maxlength="6" pattern="\d{6}" 
+                   style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem; padding: 15px;" required autofocus>
+            
+            <button type="submit" style="margin-top: 15px;">Verify & Continue</button>
+        </form>
+
+        <p class="register-text">
+            Didn't get the code? <a href="/register">Try again</a>
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

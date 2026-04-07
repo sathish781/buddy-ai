@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy AI Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-noise"></div>
+
+<div class="auth-wrapper">
+    <div class="auth-box">
+        <!-- Optional SVG Logo placeholder -->
+        <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:15px;">
+            <circle cx="50" cy="50" r="45" fill="#10a37f"/>
+            <path d="M30 50 L45 65 L70 35" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <h2>Welcome back</h2>
+        <p class="subtitle">Log in to enter Buddy AI</p>
+
+        {% if error %}
+            <div class="error">
+                <span>⚠️</span> {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <input type="text" name="username" placeholder="Username" required autofocus>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Continue</button>
+        </form>
+
+        <p class="register-text">
+            Don't have an account? <a href="/register">Sign up</a>
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

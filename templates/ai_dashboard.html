@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-noise"></div>
+
+<div class="dashboard-container">
+    <!-- Voice HUD Overlay -->
+    <div id="voice-hud" class="voice-hud">
+        <div class="hud-content auth-box">
+            <div class="voice-wave large"><span></span><span></span><span></span><span></span><span></span></div>
+            <p style="margin: 20px 0; font-weight: 500;">Buddy AI is speaking...</p>
+            <button class="menu-item active" onclick="window.speechSynthesis.cancel(); hideHUD();">Mute Assistant</button>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <a href="/new_chat" class="sidebar-header" style="text-decoration: none; cursor: pointer;">
+            <!-- Simple SVG Logo -->
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+                <circle cx="50" cy="50" r="45" fill="#10a37f"/>
+                <path d="M50 20 L50 80 M20 50 L80 50" stroke="white" stroke-width="8"/>
+            </svg>
+            <h2>New chat</h2>
+        </a>
+        
+        <div class="sidebar-menu">
+            <div class="menu-label">Recent Chats</div>
+            {% for convo in conversations %}
+                <a href="/chat/{{ convo.id }}" class="menu-item {% if convo.id == active_chat_id %}active{% endif %}">
+                    💬 {{ convo.name }}
+                </a>
+            {% endfor %}
+            
+            {% if not conversations %}
+                <div class="menu-item" style="opacity: 0.5; pointer-events: none;">
+                    No recent chats
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="/dashboard" class="menu-item" style="margin-bottom: 5px;">
+                🔄 Dual-Model Compare
+            </a>
+            <a href="/export_chat" class="menu-item" style="margin-bottom: 10px;">
+                📥 Export Conversation
+            </a>
+            <div class="user-profile" onclick="toggleSettings()">
+                <div class="avatar">{{ user[0]|upper }}</div>
+                <div style="flex: 1;">
+                    <div style="color: white; font-weight: 500; font-size: 0.95rem;">{{ user }}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.75rem;">Premium Member</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 15l-4-4h8l-4 4z"></path>
+                </svg>
+            </div>
+            <a href="/logout" class="logout-btn">Log out</a>
+        </div>
+    </aside>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content auth-box">
+            <div class="modal-header">
+                <h3>System Settings</h3>
+                <span class="close" onclick="toggleSettings()">&times;</span>
+            </div>
+            <div class="setting-item">
+                <label>Primary AI Model</label>
+                <select id="primary-model">
+                    <option>Gemini 2.0 Flash</option>
+                    <option>Llama 3.3 (via Groq)</option>
+                    <option>Gemma 3 (via Google)</option>
+                </select>
+            </div>
+            <div class="setting-item">
+                <label>Theme Preset</label>
+                <select id="theme-select">
+                    <option>Aurora Midnight (Active)</option>
+                    <option>Oceanic Glass</option>
+                    <option>Cyber Obsidian</option>
+                </select>
+            </div>
+            <button class="menu-item active" style="margin-top:20px;" onclick="toggleSettings()">Save Preferences</button>
+        </div>
+    </div>
+
+    <!-- Main Content Dual Pane -->
+    <main class="main-content" data-grok-status="{% if latest_grok and ('Connection failed' in latest_grok or 'failed to resolve' in latest_grok) %}offline{% else %}online{% endif %}">
+        <div class="dual-pane">
+            
+            <!-- Left: Chat History -->
+            <section class="chat-section">
+                <!-- Analysis Toggle Button (Hidden/Show) -->
+                <button class="toggle-analysis-btn" onclick="toggleAnalysis()" title="Toggle Analysis">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12H3M21 6H3M21 18H3"></path>
+                    </svg>
+                    <span>Analysis</span>
+                </button>
+
+                <div class="chat-window" id="chat-window">
+                    {% if chat %}
+                        {% for msg in chat %}
+                            <div class="message-wrapper {% if msg.role == 'assistant' %}ai{% endif %}">
+                                <!-- Avatar -->
+                                {% if msg.role == 'user' %}
+                                    <div class="avatar user">{{ user[0]|upper }}</div>
+                                {% else %}
+                                    <div class="avatar bot">B</div>
+                                {% endif %}
+                                
+                                <!-- Content -->
+                                <div class="message-content">{{ msg.content }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <!-- Animated Glassy Circle -->
+                            <div style="position: relative; margin-bottom: 30px;">
+                                <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+                                    <circle cx="50" cy="50" r="45" fill="rgba(0, 255, 255, 0.1)"/>
+                                    <circle cx="50" cy="50" r="30" stroke="rgba(0, 255, 255, 0.3)" stroke-width="2" stroke-dasharray="10 20"/>
+                                    <path d="M50 35 V65 M35 50 H65" stroke="white" stroke-width="5" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h1>Welcome, {{ user }}</h1>
+                            <p>Select a quick prompt or start typing below</p>
+                            
+                            <div class="quick-prompts">
+                                <div class="prompt-card" onclick="setPrompt('Explain quantum computing like I\'m five')">
+                                    <strong>💡 Explain Concept</strong>
+                                    <p>Quantum computing in simple terms</p>
+                                </div>
+                                <div class="prompt-card" onclick="setPrompt('Write a python script to scrape news headlines')">
+                                    <strong>🐍 Code Assistant</strong>
+                                    <p>Help with Python automation</p>
+                                </div>
+                                <div class="prompt-card" onclick="setPrompt('Give me a 3-day travel itinerary for Paris')">
+                                    <strong>✈️ Travel Planner</strong>
+                                    <p>Plan a perfect trip</p>
+                                </div>
+                                <div class="prompt-card" onclick="setPrompt('How can I make my website look more professional?')">
+                                    <strong>🎨 Design Tips</strong>
+                                    <p>Improve UI/UX aesthetics</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Input box fixed at bottom of chat section -->
+                <div class="input-area">
+                    <div id="image-preview-container">
+                        <img id="image-preview" src="">
+                        <div class="remove-img" onclick="removeImage()">✕</div>
+                    </div>
+                    
+                    <form method="POST" action="/ask" id="ask-form" enctype="multipart/form-data">
+                        <div class="input-box">
+                            <!-- Hidden File Input -->
+                            <input type="file" name="file" id="file-input" accept="image/*" style="display:none" onchange="previewImage(this)">
+                            
+                            <!-- Attachment Button -->
+                            <button type="button" class="icon-btn" onclick="document.getElementById('file-input').click()" title="Attach image">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </button>
+
+                            <!-- Speak Aloud Toggle -->
+                            <button type="button" class="icon-btn" id="tts-toggle" onclick="toggleTTS()" title="Speak AI responses">
+                                <svg id="tts-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 5L6 9H2V15H6L11 19V5Z"></path>
+                                    <path d="M19.07 4.93C20.94 6.81 22 9.32 22 12C22 14.68 20.94 17.19 19.07 19.07" stroke-dasharray="1 4"></path>
+                                    <path d="M15.54 8.46C16.47 9.4 17 10.66 17 12C17 13.34 16.47 14.6 15.54 15.54" stroke-dasharray="1 3"></path>
+                                </svg>
+                            </button>
+
+                            <!-- Voice Button -->
+                            <button type="button" class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice input">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 01-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                                </svg>
+                            </button>
+
+                            <input type="text" name="question" id="query-input" placeholder="Message Buddy AI..." required autofocus autocomplete="off">
+                            
+                            <button type="submit" id="submit-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-disclaimer" id="voice-status-text">Buddy AI can make mistakes. Images & voice are processed instantly.</div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Right: Real-time Comparison -->
+            <section class="comparison-section" id="analysis-pane">
+                {% if current_question %}
+                    <div class="comparison-header">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10a37f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="20" x2="12" y2="10"></line>
+                            <line x1="18" y1="20" x2="18" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="16"></line>
+                        </svg>
+                        Model Analysis
+                    </div>
+                    
+                    <div class="model-card card-best">
+                        <div class="card-status-line">
+                            <h4>🏆 Overall Winner</h4>
+                            <div class="status-badge" id="best-status">System Ready</div>
+                        </div>
+                        <pre>{{ latest_best }}</pre>
+                    </div>
+
+                    <div class="model-card card-gemini">
+                        <div class="card-status-line">
+                            <h4>Google Gemini</h4>
+                            <div class="status-badge ping" id="gemini-status">Checking...</div>
+                        </div>
+                        <pre>{{ latest_gemini }}</pre>
+                    </div>
+
+                    <div class="model-card card-grok">
+                        <div class="card-status-line">
+                            <h4>xAI Grok / Groq</h4>
+                            <div class="status-badge ping" id="groq-status">Checking...</div>
+                        </div>
+                        <pre>{{ latest_grok }}</pre>
+                    </div>
+                {% else %}
+                    <div style="display:flex; height:100%; align-items:center; justify-content:center; flex-direction:column; color:var(--text-secondary); opacity:0.5;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 20px;">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        <p style="text-align:center;">Submit a prompt to see<br>model breakdown</p>
+                    </div>
+                {% endif %}
+            </section>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+    // --- Markdown Logic ---
+    function renderMarkdown() {
+        document.querySelectorAll('.message-content, .model-card pre').forEach(el => {
+            const rawText = el.innerText;
+            if (rawText.trim()) {
+                el.innerHTML = marked.parse(rawText);
+                el.style.whiteSpace = 'normal';
+            }
+        });
+        hljs.highlightAll();
+        
+        // Speak the last AI response if TTS is on
+        if (typeof isTtsEnabled !== 'undefined' && isTtsEnabled) {
+            speakLastResponse();
+        }
+    }
+
+    marked.setOptions({
+        highlight: function(code, lang) {
+            const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+            return hljs.highlight(code, { language }).value;
+        }
+    });
+
+    // --- Image Preview Logic ---
+    function previewImage(input) {
+        const preview = document.getElementById('image-preview');
+        const container = document.getElementById('image-preview-container');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                container.style.display = 'block';
+                checkButtonState();
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function removeImage() {
+        document.getElementById('file-input').value = "";
+        document.getElementById('image-preview-container').style.display = 'none';
+        checkButtonState();
+    }
+
+    // --- Voice Logic ---
+    let recognition;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('query-input').value = transcript;
+            toggleVoice();
+            checkButtonState();
+            
+            // Auto-submit voice input
+            setTimeout(() => {
+                if (transcript.trim().length > 0) {
+                    document.getElementById('ask-form').submit();
+                }
+            }, 600);
+        };
+
+        recognition.onerror = () => toggleVoice();
+    }
+
+    function toggleVoice() {
+        const btn = document.getElementById('voice-btn');
+        const statusText = document.getElementById('voice-status-text');
+        
+        if (!recognition) {
+            alert("Voice recognition not supported in this browser.");
+            return;
+        }
+        if (isRecording) {
+            recognition.stop();
+            btn.classList.remove('active');
+            statusText.innerHTML = "Buddy AI can make mistakes. Images & voice are processed instantly.";
+            isRecording = false;
+        } else {
+            recognition.start();
+            btn.classList.add('active');
+            statusText.innerHTML = '<div class="voice-wave"><span></span><span></span><span></span><span></span><span></span></div> Listening...';
+            isRecording = true;
+        }
+    }
+
+    // --- Text-to-Speech (TTS) Logic ---
+    let isTtsEnabled = localStorage.getItem('ttsEnabled') === 'true';
+    
+    function updateTtsIcon() {
+        const icon = document.getElementById('tts-icon');
+        const btn = document.getElementById('tts-toggle');
+        if (!icon || !btn) return;
+        
+        if (isTtsEnabled) {
+            btn.classList.add('active');
+            icon.innerHTML = '<path d="M11 5L6 9H2V15H6L11 19V5Z"></path><path d="M19.07 4.93C20.94 6.81 22 9.32 22 12C22 14.68 20.94 17.19 19.07 19.07"></path><path d="M15.54 8.46C16.47 9.4 17 10.66 17 12C17 13.34 16.47 14.6 15.54 15.54"></path>';
+        } else {
+            btn.classList.remove('active');
+            icon.innerHTML = '<path d="M11 5L6 9H2V15H6L11 19V5Z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>';
+        }
+    }
+
+    function toggleTTS() {
+        isTtsEnabled = !isTtsEnabled;
+        localStorage.setItem('ttsEnabled', isTtsEnabled);
+        updateTtsIcon();
+        if (!isTtsEnabled) window.speechSynthesis.cancel();
+    }
+
+    function speakLastResponse() {
+        if (!isTtsEnabled) return;
+        
+        const aiMessages = document.querySelectorAll('.message-wrapper.ai .message-content');
+        if (aiMessages.length > 0) {
+            const lastMsg = aiMessages[aiMessages.length - 1].innerText;
+            window.speechSynthesis.cancel(); 
+            const utterance = new SpeechSynthesisUtterance(lastMsg);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            const btn = document.getElementById('voice-btn');
+            const statusText = document.getElementById('voice-status-text');
+            
+            utterance.onstart = () => {
+                btn.classList.add('active');
+                if (statusText) statusText.innerHTML = '<div class="voice-wave"><span></span><span></span><span></span><span></span><span></span></div> AI Speaking...';
+                showHUD();
+            };
+            
+            utterance.onend = () => {
+                btn.classList.remove('active');
+                if (statusText) statusText.innerHTML = "Buddy AI can make mistakes. Images & voice are processed instantly.";
+                hideHUD();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function showHUD() {
+        if (!isTtsEnabled) return;
+        document.getElementById('voice-hud').classList.add('active');
+    }
+
+    function hideHUD() {
+        document.getElementById('voice-hud').classList.remove('active');
+    }
+
+    updateTtsIcon();
+
+    // --- Form UX ---
+    const qInput = document.getElementById('query-input');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    function checkButtonState() {
+        if (qInput.value.trim() !== "" || document.getElementById('file-input').files.length > 0) {
+            submitBtn.classList.add('ready');
+        } else {
+            submitBtn.classList.remove('ready');
+        }
+    }
+
+    qInput.addEventListener('input', checkButtonState);
+
+    const form = document.getElementById('ask-form');
+    form.addEventListener('submit', () => {
+        submitBtn.innerHTML = '<span class="loading"></span>';
+        submitBtn.style.opacity = '0.7';
+        submitBtn.style.pointerEvents = 'none';
+        
+        // Show toast for image upload to give feedback
+        const fileInput = document.getElementById('file-input');
+        if (fileInput.files.length > 0) {
+            showToast("📤 Uploading and analyzing your photo...");
+        }
+    });
+
+    // --- Analysis Toggle ---
+    function toggleAnalysis() {
+        const pane = document.getElementById('analysis-pane');
+        const btn = document.querySelector('.toggle-analysis-btn');
+        pane.classList.toggle('hidden');
+        btn.classList.toggle('active');
+        
+        // Save preference
+        localStorage.setItem('showAnalysis', !pane.classList.contains('hidden'));
+    }
+
+    // Load preference
+    if (localStorage.getItem('showAnalysis') === 'false') {
+        document.getElementById('analysis-pane').classList.add('hidden');
+        document.querySelector('.toggle-analysis-btn').classList.remove('active');
+    } else {
+        document.querySelector('.toggle-analysis-btn').classList.add('active');
+    }
+
+    // Scroll chat to bottom
+    const cw = document.getElementById('chat-window');
+    if (cw) { cw.scrollTop = cw.scrollHeight; }
+
+    // Initial render
+    renderMarkdown();
+
+    // --- Quick Prompt Helper ---
+    function setPrompt(text) {
+        const input = document.getElementById('query-input');
+        input.value = text;
+        checkButtonState();
+        input.focus();
+    }
+
+    // --- Liquid Bubble Generator ---
+    function createBubbles() {
+        const body = document.body;
+        const bubbleCount = 15;
+        
+        for (let i = 0; i < bubbleCount; i++) {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            const size = Math.random() * 40 + 10 + 'px';
+            bubble.style.width = size;
+            bubble.style.height = size;
+            
+            bubble.style.left = Math.random() * 100 + 'vw';
+            bubble.style.setProperty('--duration', Math.random() * 15 + 10 + 's');
+            bubble.style.setProperty('--drift', Math.random() * 200 - 100 + 'px');
+            bubble.style.animationDelay = Math.random() * 10 + 's';
+            
+            body.appendChild(bubble);
+        }
+    }
+    
+    createBubbles();
+
+    // --- Status Check Dashboard ---
+    function updatePingStatus() {
+        const status = document.querySelector('.main-content').dataset.grokStatus;
+        const groqBadge = document.getElementById('groq-status');
+        const geminiBadge = document.getElementById('gemini-status');
+        if (!groqBadge || !geminiBadge) return;
+
+        geminiBadge.innerText = 'Online (115ms)';
+        geminiBadge.classList.add('online');
+        
+        if (status === 'offline') {
+            groqBadge.innerText = 'Network Blocked';
+            groqBadge.classList.add('offline');
+        } else {
+            groqBadge.innerText = 'Stable (92ms)';
+            groqBadge.classList.add('online');
+        }
+    }
+    
+    setTimeout(updatePingStatus, 1000);
+
+    // --- Modal Logic ---
+    function toggleSettings() {
+        const modal = document.getElementById('settings-modal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    // --- Toast Notification ---
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy AI Register</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-noise"></div>
+
+<div class="auth-wrapper">
+    <div class="auth-box">
+        <!-- Optional SVG Logo placeholder -->
+        <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:15px;">
+            <circle cx="50" cy="50" r="45" fill="#10a37f"/>
+            <path d="M50 25 V75 M25 50 H75" stroke="white" stroke-width="8" stroke-linecap="round"/>
+        </svg>
+
+        <h2>Create your account</h2>
+        <p class="subtitle">Join Buddy AI and compare models</p>
+
+        {% if error %}
+            <div class="error">
+                <span>⚠️</span> {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="POST">
+            <input type="text" name="username" placeholder="Choose a username" required autofocus>
+            <input type="email" name="email" placeholder="Gmail Address" required>
+            <input type="tel" name="phone" placeholder="Mobile Number (+123...)" required>
+
+            <div class="password-wrapper" style="position: relative;">
+                <input type="password" id="password" name="password" placeholder="Create a password" required>
+                <span onclick="togglePassword()" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-secondary);">👁</span>
+            </div>
+
+            <button type="submit" style="margin-top: 10px;">Continue</button>
+        </form>
+
+        <p class="register-text">
+            Already have an account? <a href="/">Log in</a>
+        </p>
+    </div>
+</div>
+
+<script>
+function togglePassword() {
+    var pass = document.getElementById("password");
+    pass.type = pass.type === "password" ? "text" : "password";
+}
+</script>
+
+</body>
+</html>
